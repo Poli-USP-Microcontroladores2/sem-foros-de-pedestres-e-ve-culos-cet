@@ -1,3 +1,30 @@
+/*
+Esquemática do Código do semáforo de Veículos:
+        Ciclo Básico: Vermelho 4 segundos, Verde 3 segundos, Amarelo 1 segundo.
+        Ao acionar o Bot1, mandar sinal via OUT1, amarelo 1s, vermelho 4 segundos. Após isso, Verde 3s e reiniciar o ciclo.
+        Ao acionar o Bot2, mandar sinal via OUT2 e acionar o modo noturno: Amarelo acende 1s, apaga 1s, acende 1s, apaga 1s...
+
+    Obs. 
+    1-  Gerenciar os ciclos no main thread?
+            Criamos um loop no main thread que vai criando threads dinâmicos, que por sua vez acionam os LEDS.
+            Criamos uma variável global, chamada CurrentState, e esse loop usa um switch baseado nessa variavel para decidir qual thread criar de acordo com o seu valor.
+                Ao terminar de executar, cada thread muda o valor da CurrentState, para indicar qual thread deverá ser criada em seguida pelo main thread.
+                Podemos fazer:
+                    0/Default: Verde, no final da execução muda o valor para 1
+                    1: Amarelo, no final da execução muda o valor para 2
+                    2: Vermelho, no final da execução, muda o valor para 0
+
+            Podemos criar, também, uma variável chamada NightMode, que determina o modo noturno.
+                Ela muda as características dos loops. Com NightMode = 1:
+                    O vermelho, ao inves de ao terminar definir CurrentState para 0(verde), volta para o amarelo.
+                    O amarelo, ao inves de ligar e após 1s desligar e mudar o CurrentState para 2(vermelho), desliga e aguarda 1s e define CurrentState para 1(Amarelo).
+
+    2-  Foi solicitado o uso de mutex, nesse caso, não será possível usar interrupt para os botões. Usar polling.
+            Seria interessante criar uma função de polling para facilitar o código. Ela verifica os botões e retorna se a função de aguardo do loop atual deve ser interrompida precocemente (retorna uma bool).
+                Ao ser acionado, os botões modificam o valor da variável CurrentState e NightMode.
+*/
+
+
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/sys/printk.h>
@@ -28,7 +55,7 @@ static struct gpio_callback button_cb_data;
 void button_isr(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {
     LOG_INF("Toggle Botão");
-    gpio_pin_toggle_dt(&ledB);
+    gpio_pin_toggle_dt(&ledB); //Toggle led Vermelho
 }
 
 // ----------------------------------------------------
