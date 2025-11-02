@@ -4,8 +4,7 @@ Requisitos do Sistema:
         -Implementar amarelo por 1s e depois vermelho? Ficaria mais interessante.
     -Modo noturno: Amarelo piscante (1s on, 1s off).
     -Comunicação com o semáforo de pedestres.
-    -Os LEDs devem ser controlados por threads separadas, para garantir mutex.
-        -Fazer sem mutex, com threads separadas de mesma prioridade e sem round-robin, facilitaria muito ao permitir o uso de interrupts para os botões/comunicações. Mas entendemos que o uso de mutex é requisito.
+    -Os LEDs devem ser controlados por threads separadas, garantindo o mutex.
 
 Arquitetura/Projeto do sistema:
     -Comunicação entre os 2 MCU:
@@ -27,9 +26,11 @@ Arquitetura/Projeto do sistema:
                     Criamos uma variável global, chamada CurrentState, e esse loop usa um switch baseado nessa variavel para decidir qual thread criar de acordo com o seu valor.
                         Ao terminar de executar, cada thread muda o valor da CurrentState, para indicar qual thread deverá ser criada em seguida pelo main thread.
                         Podemos fazer:
-                            0/Default: Verde, no final da execução muda o valor para 1
-                            1: Amarelo, no final da execução muda o valor para 2
-                            2: Vermelho, no final da execução, muda o valor para 0
+                            0/Default: Vermelho, no final da execução muda o valor para 1 (verde)
+                            1: Verde, no final da execução muda o valor para 2 (amarelo)
+                            2: Amarelo, no final da execução muda o valor para 0 (vermelho)
+                            3: Desligado, no final da execução muda o valor para 2 (amarelo) (MODO NOTURNO)
+
 
                     Podemos criar, também, uma variável chamada NightMode, que determina o modo noturno.
                         Ela muda as características dos loops. Com NightMode = 1:
@@ -38,8 +39,7 @@ Arquitetura/Projeto do sistema:
 
         B-Botões:
             Pontos:
-                1-  Foi solicitado o uso de mutex, nesse caso, não será possível usar interrupt para os botões. Usar polling.
-                    Seria interessante criar uma função de polling para facilitar o código. Ela verifica os botões e retorna se a função de aguardo do loop atual deve ser interrompida precocemente (retorna uma bool).
+                1-Implementar Interrupts, usar polling estava dando problemas.
                     Ao serem acionados, os botões modificam o valor da variável CurrentState e NightMode.
                     Ao serem acionados, os botões tb modificam o valor das saídas OUT1 e OUT2
 
