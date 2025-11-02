@@ -36,9 +36,9 @@ static struct gpio_callback button_cbped_data;
 
 // --- Variaveis Globais ---
 atomic_t CurrentState = ATOMIC_INIT(3); //Comecar sempre desligado (3)
-atomic_t NightMode = ATOMIC_INIT(true); //Modo noturno
+atomic_t NightMode = ATOMIC_INIT(false); //Modo noturno
 atomic_t PedestrianMode = ATOMIC_INIT(false); //Modo Pedestre
-k_tid_t currentColorThreadID; //TID da thread de cor atual criada pela main(vermelho, verde, amarelo, off)
+atomic_t currentColorThreadID; //TID da thread de cor atual criada pela main(vermelho, verde, amarelo, off)
 
 // --- Threads ---
 K_THREAD_STACK_DEFINE(red_stack, 512);
@@ -91,7 +91,7 @@ void green_thread(void *arg1, void *arg2, void *arg3) {
     LOG_INF("FIM GREEN");
 
     //Muda o CurrentState
-    atomic_set(&CurrentState, 2); // Próximo estado: Amarelo
+    atomic_set(&CurrentState, 2); //Próximo estado: Amarelo
 }
 
 void yellow_thread(void *arg1, void *arg2, void *arg3) {
@@ -107,12 +107,12 @@ void yellow_thread(void *arg1, void *arg2, void *arg3) {
     if (atomic_get(&NightMode))
     {
         //Muda o CurrentState
-        atomic_set(&CurrentState, 3); // Próximo estado: Desligado (ciclo noturno)
+        atomic_set(&CurrentState, 3); //Próximo estado: Desligado (ciclo noturno)
     }
     else
     {
         //Muda o CurrentState
-        atomic_set(&CurrentState, 0); // Próximo estado: Vermelho
+        atomic_set(&CurrentState, 0); //Próximo estado: Vermelho
     }
 }
 
@@ -125,12 +125,12 @@ void off_thread(void *arg1, void *arg2, void *arg3) {
     if (atomic_get(&NightMode))
     {
         //Muda o CurrentState
-        atomic_set(&CurrentState, 2); // Próximo estado: Amarelo (para piscar)
+        atomic_set(&CurrentState, 2); //Próximo estado: Amarelo (para piscar)
     }
     else
     {
         //Muda o CurrentState
-        atomic_set(&CurrentState, 0); // Próximo estado: Vermelho
+        atomic_set(&CurrentState, 0); //Próximo estado: Vermelho
     }
 }
 
@@ -153,7 +153,7 @@ void buttonPedestrian_isr(const struct device *devped, struct gpio_callback *cbp
         gpio_pin_set_dt(&ledR, 0); //Desliga o vermelho
         gpio_pin_set_dt(&ledG, 0); //Desliga o verde
         gpio_pin_set_dt(&ledB, 0); //Desliga o azul
-        k_thread_abort(currentColorThreadID); //Aborta o thread da cor atual
+        k_thread_abort((k_tid_t)atomic_get(&currentColorThreadID)); //Aborta o thread da cor atual, caso seja inválido (o thread já finalizou/terminou), nada acontece.
         LOG_INF("TENTATIVA DE ATIVAR O MODO PEDESTRE");
         LOG_INF("END INTERRUPT");
         k_sched_unlock();
@@ -166,9 +166,9 @@ void buttonPedestrian_isr(const struct device *devped, struct gpio_callback *cbp
 // ----------------------------------------------------
 int main(void)
 {
-    k_thread_priority_set(k_current_get(),2); //Define a prioridade da main para 2. Usaremos isso para evitar que ela interrompa as outras threads.
+    //k_thread_priority_set(k_current_get(),2); //Define a prioridade da main para 2. Usaremos isso para evitar que ela interrompa as outras threads.
 
-    // Inicializa GPIOs dos LEDs
+    //Inicializa GPIOs dos LEDs
     if (!device_is_ready(ledG.port) || !device_is_ready(ledR.port) || !device_is_ready(ledB.port)){
         return 1;
     }
@@ -183,22 +183,24 @@ int main(void)
     gpio_init_callback(&button_cbped_data, buttonPedestrian_isr, BIT(buttonPedestrian.pin));
     gpio_add_callback(buttonPedestrian.port, &button_cbped_data);
 
-
     //Teste dos LEDs
-    gpio_pin_set_dt(&ledB, 1);  // Liga LED azul
+    gpio_pin_set_dt(&ledB, 1);  //Liga LED azul
     k_msleep(100);
-    gpio_pin_set_dt(&ledB, 0);  // Desliga LED azul 
-    gpio_pin_set_dt(&ledG, 1);  // Liga LED verde
+    gpio_pin_set_dt(&ledB, 0);  //Desliga LED azul 
+    gpio_pin_set_dt(&ledG, 1);  //Liga LED verde
     k_msleep(100);
-    gpio_pin_set_dt(&ledG, 0);  // Desliga LED verde 
-    gpio_pin_set_dt(&ledR, 1);  // Liga LED vermelho
+    gpio_pin_set_dt(&ledG, 0);  //Desliga LED verde 
+    gpio_pin_set_dt(&ledR, 1);  //Liga LED vermelho
     k_msleep(100);
-    gpio_pin_set_dt(&ledG, 1);  // Liga os 2 LEDs (Amarelo)
+    gpio_pin_set_dt(&ledG, 1);  //Liga os 2 LEDs (Amarelo)
     k_msleep(100);
-    gpio_pin_set_dt(&ledG, 0);  // Desliga LED verde 
-    gpio_pin_set_dt(&ledR, 0);  // Desliga LED vermelho 
+    gpio_pin_set_dt(&ledG, 0);  //Desliga LED verde 
+    gpio_pin_set_dt(&ledR, 0);  //Desliga LED vermelho 
 
+    //Log Inicial
     LOG_INF("\nMain Thread - Iniciando - V: %s - %s \n", __DATE__, __TIME__);
+    k_msleep(100); //Para dar tempo de printar o Log
+
 
     while (1) {
         LOG_INF("MAIN - ESCOLHENDO NOVO THREAD");
@@ -206,27 +208,39 @@ int main(void)
         switch (atomic_get(&CurrentState))
         {
         case 1:
-            //Verde
-            currentColorThreadID = k_thread_create(&green_data, green_stack, K_THREAD_STACK_SIZEOF(green_stack), green_thread, NULL, NULL, NULL, 1, 0, K_NO_WAIT); //  Cria Thread GREEN com prioridade 1
-            k_thread_join(currentColorThreadID, K_FOREVER);
-            break;
+            {
+                //Verde
+                k_tid_t tid = k_thread_create(&green_data, green_stack, K_THREAD_STACK_SIZEOF(green_stack), green_thread, NULL, NULL, NULL, 1, 0, K_NO_WAIT);
+                atomic_set(&currentColorThreadID, (atomic_val_t)tid);
+                k_thread_join(tid, K_FOREVER);
+                break;
+            }
         case 2:
-            //Amarelo
-            currentColorThreadID = k_thread_create(&yellow_data, yellow_stack, K_THREAD_STACK_SIZEOF(yellow_stack), yellow_thread, NULL, NULL, NULL, 1, 0, K_NO_WAIT); //  Cria Thread YELLOW com prioridade 1
-            k_thread_join(currentColorThreadID, K_FOREVER);
-            break;
+            {
+                //Amarelo
+                k_tid_t tid = k_thread_create(&yellow_data, yellow_stack, K_THREAD_STACK_SIZEOF(yellow_stack), yellow_thread, NULL, NULL, NULL, 1, 0, K_NO_WAIT);
+                atomic_set(&currentColorThreadID, (atomic_val_t)tid);
+                k_thread_join(tid, K_FOREVER);
+                break;
+            }
         case 3:
-            //Desligado - Ciclo Noturno
-            currentColorThreadID = k_thread_create(&off_data, off_stack, K_THREAD_STACK_SIZEOF(off_stack), off_thread, NULL, NULL, NULL, 1, 0, K_NO_WAIT); //  Cria Thread YELLOW com prioridade 1
-            k_thread_join(currentColorThreadID, K_FOREVER);
-            break;
+            {
+                //Desligado - Ciclo Noturno
+                k_tid_t tid = k_thread_create(&off_data, off_stack, K_THREAD_STACK_SIZEOF(off_stack), off_thread, NULL, NULL, NULL, 1, 0, K_NO_WAIT);
+                atomic_set(&currentColorThreadID, (atomic_val_t)tid);
+                k_thread_join(tid, K_FOREVER);
+                break;
+            }
         default:
-            //0 ou Default - Vermelho
-            currentColorThreadID = k_thread_create(&red_data, red_stack, K_THREAD_STACK_SIZEOF(red_stack), red_thread, NULL, NULL, NULL, 1, 0, K_NO_WAIT); //  Cria Thread RED com prioridade 1
-            k_thread_join(currentColorThreadID, K_FOREVER);
-            break;
+            {
+                //0 ou Default - Vermelho
+                k_tid_t tid = k_thread_create(&red_data, red_stack, K_THREAD_STACK_SIZEOF(red_stack), red_thread, NULL, NULL, NULL, 1, 0, K_NO_WAIT);
+                atomic_set(&currentColorThreadID, (atomic_val_t)tid);
+                k_thread_join(tid, K_FOREVER);
+                break;
+            }
         }
-        k_msleep(1); // Pequeno delay para evitar busy-waiting e ceder a CPU
+        k_msleep(1); //Pequeno delay para evitar busy-waiting e ceder a CPU
     }
     return 0;
 }
