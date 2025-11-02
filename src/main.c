@@ -2,7 +2,6 @@
     Planejamento do Código, comentários iniciais etc. foram movidos para o arquivo PlanejamentoDoProjeto.txt
 */
 
-
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/sys/printk.h>
@@ -35,10 +34,10 @@ static struct gpio_callback button_cbped_data;
 #define OFF_DURATION_MS 1000
 
 // --- Variaveis Globais ---
-atomic_t CurrentState = ATOMIC_INIT(3); //Comecar sempre desligado (3)
-atomic_t NightMode = ATOMIC_INIT(false); //Modo noturno
+atomic_t CurrentState = ATOMIC_INIT(2); //Comecar sempre amarelo (2)
+atomic_t NightMode = ATOMIC_INIT(true); //Modo noturno
 atomic_t PedestrianMode = ATOMIC_INIT(false); //Modo Pedestre
-atomic_t currentColorThreadID; //TID da thread de cor atual criada pela main(vermelho, verde, amarelo, off)
+atomic_t currentColorThreadID; //TID da thread de cor atual criada pela main(vermelho, verde, amarelo)
 
 // --- Threads ---
 K_THREAD_STACK_DEFINE(red_stack, 512);
@@ -47,8 +46,6 @@ K_THREAD_STACK_DEFINE(green_stack, 512);
 struct k_thread green_data;
 K_THREAD_STACK_DEFINE(yellow_stack, 512);
 struct k_thread yellow_data;
-K_THREAD_STACK_DEFINE(off_stack, 512);
-struct k_thread off_data;
 
 
 void red_thread(void *arg1, void *arg2, void *arg3) {
@@ -67,7 +64,7 @@ void red_thread(void *arg1, void *arg2, void *arg3) {
     //Muda o CurrentState de acordo com o NightMode
     if (atomic_get(&NightMode))
     {
-        atomic_set(&CurrentState, 3); // Próximo estado: Desligado (ciclo noturno)
+        atomic_set(&CurrentState, 2); // Próximo estado: Amarelo (ciclo noturno)
     }
     else
     {
@@ -101,37 +98,21 @@ void yellow_thread(void *arg1, void *arg2, void *arg3) {
     k_msleep(YELLOW_DURATION_MS);
     gpio_pin_set_dt(&ledG, 0);
     gpio_pin_set_dt(&ledR, 0);
-    LOG_INF("FIM YELLOW");
     
-    //Muda o CurrentState de acordo com o NightMode
+    //Se NightMode, permanece um período desligado e define CurrentState para 2 (amarelo) novamente
     if (atomic_get(&NightMode))
     {
+        k_msleep(OFF_DURATION_MS);
         //Muda o CurrentState
-        atomic_set(&CurrentState, 3); //Próximo estado: Desligado (ciclo noturno)
+        atomic_set(&CurrentState, 2); //Próximo estado: Desligado (ciclo noturno)
     }
     else
     {
         //Muda o CurrentState
         atomic_set(&CurrentState, 0); //Próximo estado: Vermelho
     }
-}
 
-void off_thread(void *arg1, void *arg2, void *arg3) {
-    LOG_INF("NOVA THREAD OFF");
-    // Mantém tudo desligado
-    k_msleep(OFF_DURATION_MS);
-    LOG_INF("FIM OFF");
-    //Muda o CurrentState de acordo com o NightMode
-    if (atomic_get(&NightMode))
-    {
-        //Muda o CurrentState
-        atomic_set(&CurrentState, 2); //Próximo estado: Amarelo (para piscar)
-    }
-    else
-    {
-        //Muda o CurrentState
-        atomic_set(&CurrentState, 0); //Próximo estado: Vermelho
-    }
+    LOG_INF("FIM YELLOW");
 }
 
 // --- Interrupts ---
@@ -166,8 +147,6 @@ void buttonPedestrian_isr(const struct device *devped, struct gpio_callback *cbp
 // ----------------------------------------------------
 int main(void)
 {
-    //k_thread_priority_set(k_current_get(),2); //Define a prioridade da main para 2. Usaremos isso para evitar que ela interrompa as outras threads.
-
     //Inicializa GPIOs dos LEDs
     if (!device_is_ready(ledG.port) || !device_is_ready(ledR.port) || !device_is_ready(ledB.port)){
         return 1;
@@ -219,14 +198,6 @@ int main(void)
             {
                 //Amarelo
                 k_tid_t tid = k_thread_create(&yellow_data, yellow_stack, K_THREAD_STACK_SIZEOF(yellow_stack), yellow_thread, NULL, NULL, NULL, 1, 0, K_NO_WAIT);
-                atomic_set(&currentColorThreadID, (atomic_val_t)tid);
-                k_thread_join(tid, K_FOREVER);
-                break;
-            }
-        case 3:
-            {
-                //Desligado - Ciclo Noturno
-                k_tid_t tid = k_thread_create(&off_data, off_stack, K_THREAD_STACK_SIZEOF(off_stack), off_thread, NULL, NULL, NULL, 1, 0, K_NO_WAIT);
                 atomic_set(&currentColorThreadID, (atomic_val_t)tid);
                 k_thread_join(tid, K_FOREVER);
                 break;
