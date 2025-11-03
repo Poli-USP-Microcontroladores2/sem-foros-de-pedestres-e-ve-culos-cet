@@ -18,12 +18,16 @@ LOG_MODULE_REGISTER(LOG_INF_APP, LOG_LEVEL_INF);
 #define LED_B_NODE DT_ALIAS(led2)  // LED vermelho
 #define LED_C_NODE DT_ALIAS(led1)  // LED azul
 #define BUTTON_NODE_PED DT_NODELABEL(user_button_0) //Botao Pedestre PTA16
+#define BUTTON_NODE_NIGHT DT_NODELABEL(user_button_1) //Botao Modo Noturno PTA17
 
 static const struct gpio_dt_spec ledG = GPIO_DT_SPEC_GET(LED_A_NODE, gpios);
 static const struct gpio_dt_spec ledR = GPIO_DT_SPEC_GET(LED_B_NODE, gpios);
 static const struct gpio_dt_spec ledB = GPIO_DT_SPEC_GET(LED_C_NODE, gpios);
 static const struct gpio_dt_spec buttonPedestrian = GPIO_DT_SPEC_GET(BUTTON_NODE_PED, gpios);
+static const struct gpio_dt_spec buttonNightMode = GPIO_DT_SPEC_GET(BUTTON_NODE_NIGHT, gpios);
 static struct gpio_callback button_cbped_data;
+static struct gpio_callback button_cbnight_data;
+int64_t button_night_debounce = 0;
 
 // --- Prioridades e tempos ---
 #define PRIO_THREAD_CREATED 0
@@ -141,6 +145,24 @@ void buttonPedestrian_isr(const struct device *devped, struct gpio_callback *cbp
     }
 }
 
+void buttonNightMode_isr(const struct device *devnig, struct gpio_callback *cbnig, uint32_t pins)
+{
+    LOG_INF("INTERRUPT - Botao Modo Noturno Pressionado");
+    k_sched_lock();
+    //Debounce
+    if((k_cyc_to_ms_floor32((k_cycle_get_32() - button_night_debounce)))>=100)
+    {
+        atomic_set(&NightMode, !atomic_get(&NightMode));
+        gpio_pin_set_dt(&ledR, 0); //Desliga o vermelho
+        gpio_pin_set_dt(&ledG, 0); //Desliga o verde
+        gpio_pin_set_dt(&ledB, 0); //Desliga o azul
+        atomic_set(&CurrentState, 2); //Muda o proximo para amarelo
+        k_thread_abort((k_tid_t)atomic_get(&currentColorThreadID)); //Aborta o thread da cor atual, caso seja inválido (o thread já finalizou/terminou), nada acontece.
+        LOG_INF("Modo Noturno: %ld", atomic_get(&NightMode));
+        button_night_debounce = k_cycle_get_32();
+    }
+    k_sched_unlock();
+}
 
 // ----------------------------------------------------
 // Função principal
@@ -161,6 +183,13 @@ int main(void)
     gpio_pin_interrupt_configure_dt(&buttonPedestrian, GPIO_INT_EDGE_FALLING);
     gpio_init_callback(&button_cbped_data, buttonPedestrian_isr, BIT(buttonPedestrian.pin));
     gpio_add_callback(buttonPedestrian.port, &button_cbped_data);
+
+    //Botao de Modo Noturno
+    gpio_pin_configure_dt(&buttonNightMode, GPIO_INPUT | GPIO_PULL_UP);
+    gpio_pin_interrupt_configure_dt(&buttonNightMode, GPIO_INT_EDGE_FALLING);
+    gpio_init_callback(&button_cbnight_data, buttonNightMode_isr, BIT(buttonNightMode.pin));
+    gpio_add_callback(buttonNightMode.port, &button_cbnight_data);
+    button_night_debounce = k_cycle_get_32();
 
     //Teste dos LEDs
     gpio_pin_set_dt(&ledB, 1);  //Liga LED azul
