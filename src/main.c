@@ -25,12 +25,14 @@ static const struct gpio_dt_spec ledR = GPIO_DT_SPEC_GET(LED_B_NODE, gpios);
 static const struct gpio_dt_spec ledB = GPIO_DT_SPEC_GET(LED_C_NODE, gpios);
 static const struct gpio_dt_spec buttonPedestrian = GPIO_DT_SPEC_GET(BUTTON_NODE_PED, gpios);
 static const struct gpio_dt_spec buttonNightMode = GPIO_DT_SPEC_GET(BUTTON_NODE_NIGHT, gpios);
+static const struct gpio_dt_spec out1 = { .port = DEVICE_DT_GET(DT_NODELABEL(gpioa)), .pin = 5, .dt_flags = GPIO_ACTIVE_HIGH };
+static const struct gpio_dt_spec out2 = { .port = DEVICE_DT_GET(DT_NODELABEL(gpioa)), .pin = 4, .dt_flags = GPIO_ACTIVE_HIGH };
 static struct gpio_callback button_cbped_data;
 static struct gpio_callback button_cbnight_data;
 int64_t button_night_debounce = 0;
 
 // --- Prioridades e tempos ---
-#define PRIO_THREAD_CREATED 0
+#define PRIO_THREAD_CREATED 1
 
 #define RED_DURATION_MS 4000
 #define GREEN_DURATION_MS 3000
@@ -54,14 +56,15 @@ struct k_thread yellow_data;
 
 void red_thread(void *arg1, void *arg2, void *arg3) {
     LOG_INF("NOVA THREAD RED");
+    gpio_pin_set_dt(&out1, 1); // OUT1 HIGH: Vermelho
     if (atomic_get(&PedestrianMode))
     {
         LOG_INF("MODO PEDESTRE!");
         gpio_pin_set_dt(&ledB, 1);
     }
-    gpio_pin_set_dt(&ledR, 1);
+    gpio_pin_set_dt(&ledR, 1); // Liga LED Vermelho
     k_msleep(RED_DURATION_MS);
-    gpio_pin_set_dt(&ledR, 0);
+    gpio_pin_set_dt(&ledR, 0); // Desliga LED Vermelho
     LOG_INF("FIM RED");
 
 
@@ -82,6 +85,7 @@ void red_thread(void *arg1, void *arg2, void *arg3) {
         atomic_set(&PedestrianMode, false);
         LOG_INF("MODO PEDESTRE DESATIVADO");
     }
+    gpio_pin_set_dt(&out1, 0); // OUT1 LOW: Vermelho
 }
 
 void green_thread(void *arg1, void *arg2, void *arg3) {
@@ -153,6 +157,7 @@ void buttonNightMode_isr(const struct device *devnig, struct gpio_callback *cbni
     if((k_cyc_to_ms_floor32((k_cycle_get_32() - button_night_debounce)))>=100)
     {
         atomic_set(&NightMode, !atomic_get(&NightMode));
+        gpio_pin_set_dt(&out2, atomic_get(&NightMode)); // Atualiza OUT2
         gpio_pin_set_dt(&ledR, 0); //Desliga o vermelho
         gpio_pin_set_dt(&ledG, 0); //Desliga o verde
         gpio_pin_set_dt(&ledB, 0); //Desliga o azul
@@ -169,8 +174,11 @@ void buttonNightMode_isr(const struct device *devnig, struct gpio_callback *cbni
 // ----------------------------------------------------
 int main(void)
 {
-    //Inicializa GPIOs dos LEDs
+    int64_t button_night_debounce = k_cycle_get_32();
+    
+    //Inicializa GPIOs
     if (!device_is_ready(ledG.port) || !device_is_ready(ledR.port) || !device_is_ready(ledB.port)){
+        LOG_ERR("Erro ao inicializar GPIOS - LED - G: %d, R: %d, B: %d", device_is_ready(ledG.port), device_is_ready(ledR.port), device_is_ready(ledB.port));
         return 1;
     }
 
@@ -190,6 +198,15 @@ int main(void)
     gpio_init_callback(&button_cbnight_data, buttonNightMode_isr, BIT(buttonNightMode.pin));
     gpio_add_callback(buttonNightMode.port, &button_cbnight_data);
     button_night_debounce = k_cycle_get_32();
+
+    //Inicializa OUT1 e OUT2
+    if (!device_is_ready(out1.port) || !device_is_ready(out2.port)){
+        LOG_ERR("Erro ao inicializar GPIOS - OUT1: %d, OUT2: %d", device_is_ready(out1.port), device_is_ready(out2.port));
+        return 1;
+    }
+    gpio_pin_configure_dt(&out1, GPIO_OUTPUT_INACTIVE);
+    gpio_pin_configure_dt(&out2, GPIO_OUTPUT_INACTIVE);
+    gpio_pin_set_dt(&out2, atomic_get(&NightMode));
 
     //Teste dos LEDs
     gpio_pin_set_dt(&ledB, 1);  //Liga LED azul
@@ -218,7 +235,7 @@ int main(void)
         case 1:
             {
                 //Verde
-                k_tid_t tid = k_thread_create(&green_data, green_stack, K_THREAD_STACK_SIZEOF(green_stack), green_thread, NULL, NULL, NULL, 1, 0, K_NO_WAIT);
+                k_tid_t tid = k_thread_create(&green_data, green_stack, K_THREAD_STACK_SIZEOF(green_stack), green_thread, NULL, NULL, NULL, PRIO_THREAD_CREATED, 0, K_NO_WAIT);
                 atomic_set(&currentColorThreadID, (atomic_val_t)tid);
                 k_thread_join(tid, K_FOREVER);
                 break;
@@ -226,7 +243,7 @@ int main(void)
         case 2:
             {
                 //Amarelo
-                k_tid_t tid = k_thread_create(&yellow_data, yellow_stack, K_THREAD_STACK_SIZEOF(yellow_stack), yellow_thread, NULL, NULL, NULL, 1, 0, K_NO_WAIT);
+                k_tid_t tid = k_thread_create(&yellow_data, yellow_stack, K_THREAD_STACK_SIZEOF(yellow_stack), yellow_thread, NULL, NULL, NULL, PRIO_THREAD_CREATED, 0, K_NO_WAIT);
                 atomic_set(&currentColorThreadID, (atomic_val_t)tid);
                 k_thread_join(tid, K_FOREVER);
                 break;
@@ -234,7 +251,7 @@ int main(void)
         default:
             {
                 //0 ou Default - Vermelho
-                k_tid_t tid = k_thread_create(&red_data, red_stack, K_THREAD_STACK_SIZEOF(red_stack), red_thread, NULL, NULL, NULL, 1, 0, K_NO_WAIT);
+                k_tid_t tid = k_thread_create(&red_data, red_stack, K_THREAD_STACK_SIZEOF(red_stack), red_thread, NULL, NULL, NULL, PRIO_THREAD_CREATED, 0, K_NO_WAIT);
                 atomic_set(&currentColorThreadID, (atomic_val_t)tid);
                 k_thread_join(tid, K_FOREVER);
                 break;
