@@ -32,8 +32,7 @@ static struct gpio_callback button_cbnight_data;
 int64_t button_night_debounce;
 
 // --- Prioridades e tempos ---
-#define PRIO_THREAD_CREATED 1
-
+#define PRIO_THREAD_CREATED 1 //Prioridade dos Threads de cores que sao criados
 #define RED_DURATION_MS 4000
 #define GREEN_DURATION_MS 3000
 #define YELLOW_DURATION_MS 1000
@@ -46,6 +45,7 @@ atomic_t PedestrianMode = ATOMIC_INIT(false); //Modo Pedestre
 atomic_t currentColorThreadID; //TID da thread de cor atual criada pela main(vermelho, verde, amarelo)
 
 // --- Threads ---
+//Se faltar memoria, mudar o tamanho das stacks, provavelmente quase nao esta sendo usado.
 K_THREAD_STACK_DEFINE(red_stack, 512);
 struct k_thread red_data;
 K_THREAD_STACK_DEFINE(green_stack, 512);
