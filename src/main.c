@@ -19,10 +19,17 @@ static const struct gpio_dt_spec in2 = { .port = DEVICE_DT_GET(DT_NODELABEL(gpio
 // ----------------------------------------------------
 atomic_t vehicle_red  = ATOMIC_INIT(false);
 atomic_t night_mode   = ATOMIC_INIT(false);
+atomic_t fail_safe_mode = ATOMIC_INIT(false);
 
 // A variável sync alterna entre o modo independente e o modo sincronizado.
 // OBS: o modo independente não possui modo noturno, pois a botoeira é parte do sistema mestre.
 bool sync = true;
+
+// Se true, o sistema sai do modo fail-safe automaticamente ao restabelecer a comunicação.
+bool auto_recovery = true;
+// Tempo em milissegundos sem alteração no sinal de sincronismo para entrar em modo fail-safe.
+const int FAIL_SAFE_TIMEOUT_MS = 4500;
+
 struct k_mutex ped_mutex;
 
 // ----------------------------------------------------
@@ -42,7 +49,15 @@ void ped_red_thread(void *a, void *b, void *c)
         int night   = atomic_get(&night_mode);
         int veh_red = atomic_get(&vehicle_red);
 
-        if (night) {
+        if (atomic_get(&fail_safe_mode)) {
+            // MODO FAIL-SAFE: Prioridade máxima. Pisca o LED vermelho.
+            k_mutex_lock(&ped_mutex, K_FOREVER);
+            gpio_pin_set_dt(&ped_green, 0);
+            gpio_pin_toggle_dt(&ped_red);
+            k_mutex_unlock(&ped_mutex);
+            k_msleep(500); // Período do pisca em fail-safe
+        }
+        else if (night) {
             // No modo noturno, o LED vermelho pisca em sincronia com o sinal mestre.
             // veh_red == 1 (sinal mestre alto) -> LED vermelho aceso
             k_mutex_lock(&ped_mutex, K_FOREVER);
@@ -74,7 +89,15 @@ void ped_green_thread(void *a, void *b, void *c)
         int night   = atomic_get(&night_mode);
         int veh_red = atomic_get(&vehicle_red);
 
-        if (!night && veh_red) {
+        if (atomic_get(&fail_safe_mode)) {
+            // MODO FAIL-SAFE: Garante que o LED verde permaneça desligado.
+            // Também implementamos um vermelho piscante, just for fun.
+            k_mutex_lock(&ped_mutex, K_FOREVER);
+            gpio_pin_set_dt(&ped_green, 0);
+            k_mutex_unlock(&ped_mutex);
+            k_msleep(500);
+        }
+        else if (!night && veh_red) {
             // Veículo vermelho = pedestre verde
             k_mutex_lock(&ped_mutex, K_FOREVER);
             gpio_pin_set_dt(&ped_green, 1);
@@ -96,7 +119,7 @@ int main(void)
 
     gpio_pin_configure_dt(&ped_red, GPIO_OUTPUT_INACTIVE);
     gpio_pin_configure_dt(&ped_green, GPIO_OUTPUT_INACTIVE);
-    gpio_pin_configure_dt(&in1, GPIO_INPUT);
+    gpio_pin_configure_dt(&in1, GPIO_INPUT | GPIO_PULL_DOWN);
     gpio_pin_configure_dt(&in2, GPIO_INPUT);
 
     k_mutex_init(&ped_mutex);
@@ -112,6 +135,7 @@ int main(void)
     // ----------------------------------------------------
     bool last_sync_high = false;
     int local_timer = 0;
+    int sync_watchdog_timer = 0;
     int veh_state = 0;  // 0 = verde (ped vermelho), 1 = vermelho (ped verde)
 
     const int CYCLE_TIME_MS = 4000;
@@ -123,7 +147,26 @@ int main(void)
 
         atomic_set(&night_mode, night_in ? 1 : 0);
 
-        // Sincronismo
+        // --- Lógica de Watchdog e Fail-Safe (baseada no sinal de sincronismo in1) ---
+        // O sinal de sincronismo (in1) é usado como heartbeat. Se ele não mudar
+        // por um tempo, consideramos que a comunicação foi perdida (dead's man switch baby).
+        if (sync_high != last_sync_high) {
+            // Comunicação está ativa, reseta o watchdog.
+            sync_watchdog_timer = 0;
+            // Se a recuperação automática estiver habilitada, sai do modo fail-safe.
+            if (auto_recovery) {
+                atomic_set(&fail_safe_mode, false);
+            }
+        } else {
+            // Sem mudança no sinal, incrementa o timer do watchdog.
+            sync_watchdog_timer += LOOP_MS;
+        }
+
+        if (sync_watchdog_timer > FAIL_SAFE_TIMEOUT_MS) {
+            atomic_set(&fail_safe_mode, true);
+        }
+
+        // --- Lógica de Sincronismo ---
         if (sync) {
             veh_state = sync_high ? 1 : 0;
             last_sync_high = sync_high;
