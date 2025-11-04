@@ -50,20 +50,23 @@ Milestones/Passos de desenvolvimento:
         -Testar se o tempo de cada cor está sendo respeitado.
 
     2-Implementar e testar o botão de pedestres
-        -Testar se o pooling do botão está funcionando adequadamente.
-        -Verificar e ajustar a frequencia de pooling.
+        -Testar se o pooling ou interrupt do botão está funcionando adequadamente.
         -Verificar se ocorre problemas com debouncing/acionamentos multiplos.
-        -Verificar se há a mudança de ciclo de acordo com o esperado
+        -Verificar se há a mudança de ciclo de acordo com o esperado.
+        -Verificar se ao acionar novamente o programa volta ao ciclo original.
 
     3-Implementar e testar o botão de modo noturno.
-        -Testar se o pooling do botão está funcionando adequadamente.
-        -Verificar e ajustar a frequencia de pooling.
+        -Testar se o interrupt do botão está funcionando adequadamente.
         -Verificar se ocorre problemas com debouncing/acionamentos multiplos.
         -Verificar se há a mudança de modo de acordo com o esperado.
         -Verificar se ao acionar novamente o programa volta ao modo original.
 
     4-Implementar e testar a comunicação via GPIO
         -Implementar o acionamento/toggle das GPIO
-        -Verificar no osciloscópio se há a mudança do sinal.
+        -Verificar no osciloscópio se há a mudança do sinal e eles estao funcionando adequadamente.
     
-    5-Juntar os 2 MCU e testar (CONTINUA....)
+    5-Juntar os 2 MCU e Testar
+        -As duas placas conseguem enviar/receber sinal.
+        -As duas placas conseguem entrar em sincronia das cores e de modos.
+        -As duas placas funcionam individualmente.
+        -O botao de pedestre funciona.

@@ -31,7 +31,8 @@ static struct gpio_callback button_cbped_data;
 static struct gpio_callback button_cbnight_data;
 int64_t button_night_debounce;
 
-// --- Prioridades e tempos ---
+// --- Prioridades, tempos e outras configuracoes ---
+#define PEDESTRIAN_PURPLE 1 //O vermelho de pedestres fica roxo para diferenciar do vermelho normal
 #define PRIO_THREAD_CREATED 1 //Prioridade dos Threads de cores que sao criados
 #define RED_DURATION_MS 4000
 #define GREEN_DURATION_MS 3000
@@ -57,7 +58,7 @@ struct k_thread yellow_data;
 void red_thread(void *arg1, void *arg2, void *arg3) {
     LOG_INF("NOVA THREAD RED");
     gpio_pin_set_dt(&out1, 1); // OUT1 HIGH: Vermelho
-    if (atomic_get(&PedestrianMode))
+    if (atomic_get(&PedestrianMode) && PEDESTRIAN_PURPLE) //Deixa o LED Roxo
     {
         LOG_INF("MODO PEDESTRE!");
         gpio_pin_set_dt(&ledB, 1);
@@ -135,6 +136,12 @@ void buttonPedestrian_isr(const struct device *devped, struct gpio_callback *cbp
 {
     LOG_INF("INTERRUPT - PREFILTRO");
     k_sched_lock();
+    if(atomic_get(&NightMode))
+    {
+        LOG_INF("TENTATIVA DE ATIVAR O MODO PEDESTRE - NOTURNO ESTA ATIVADO");
+        k_sched_unlock();
+        return;
+    }
     if (atomic_get(&PedestrianMode))
     {
         LOG_INF("MODO PEDESTRE JA ESTA ATIVADO");
