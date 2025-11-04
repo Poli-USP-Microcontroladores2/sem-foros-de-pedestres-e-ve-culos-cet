@@ -29,7 +29,7 @@ static const struct gpio_dt_spec out1 = { .port = DEVICE_DT_GET(DT_NODELABEL(gpi
 static const struct gpio_dt_spec out2 = { .port = DEVICE_DT_GET(DT_NODELABEL(gpioa)), .pin = 4, .dt_flags = GPIO_ACTIVE_HIGH };
 static struct gpio_callback button_cbped_data;
 static struct gpio_callback button_cbnight_data;
-int64_t button_night_debounce = 0;
+int64_t button_night_debounce;
 
 // --- Prioridades e tempos ---
 #define PRIO_THREAD_CREATED 1
@@ -101,6 +101,11 @@ void green_thread(void *arg1, void *arg2, void *arg3) {
 
 void yellow_thread(void *arg1, void *arg2, void *arg3) {
     LOG_INF("NOVA THREAD YELLOW");
+    //OUT1 High no night mode, para sincronizar os piscares
+    if(atomic_get(&NightMode))
+    {
+        gpio_pin_set_dt(&out1, 1); // OUT1 HIGH
+    }
     gpio_pin_set_dt(&ledG, 1);
     gpio_pin_set_dt(&ledR, 1);
     k_msleep(YELLOW_DURATION_MS);
@@ -110,6 +115,7 @@ void yellow_thread(void *arg1, void *arg2, void *arg3) {
     //Se NightMode, permanece um período desligado e define CurrentState para 2 (amarelo) novamente
     if (atomic_get(&NightMode))
     {
+        gpio_pin_set_dt(&out1, 0);//OUT1 LOW
         k_msleep(OFF_DURATION_MS);
         //Muda o CurrentState
         atomic_set(&CurrentState, 2); //Próximo estado: Desligado (ciclo noturno)
@@ -257,7 +263,7 @@ int main(void)
                 break;
             }
         }
-        k_msleep(1); //Pequeno delay para evitar busy-waiting e ceder a CPU
+        //k_msleep(1); //Pequeno delay para evitar busy-waiting e ceder a CPU
     }
     return 0;
 }
