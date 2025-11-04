@@ -28,7 +28,7 @@ bool sync = true;
 // Se true, o sistema sai do modo fail-safe automaticamente ao restabelecer a comunicação.
 bool auto_recovery = true;
 // Tempo em milissegundos sem alteração no sinal de sincronismo para entrar em modo fail-safe.
-const int FAIL_SAFE_TIMEOUT_MS = 4500;
+const int FAIL_SAFE_TIMEOUT_MS = 8000;
 
 struct k_mutex ped_mutex;
 
