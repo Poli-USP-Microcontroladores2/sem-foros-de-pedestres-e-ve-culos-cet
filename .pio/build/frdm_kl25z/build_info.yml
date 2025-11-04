@@ -1,0 +1,47 @@
+cmake:
+  application:
+    configuration-dir: 'C:/Users/alber/MicroC/Atv7-SemaforoVeiculosPed/sem-foros-de-pedestres-e-ve-culos-cet/zephyr'
+    source-dir: 'C:/Users/alber/MicroC/Atv7-SemaforoVeiculosPed/sem-foros-de-pedestres-e-ve-culos-cet/zephyr'
+  board:
+    name: 'frdm_kl25z'
+    path:
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/boards/nxp/frdm_kl25z'
+    qualifiers: 'mkl25z4'
+    revision: ''
+  devicetree:
+    bindings-dirs:
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/dts/bindings'
+    files:
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/boards/nxp/frdm_kl25z/frdm_kl25z.dts'
+     - 'C:/Users/alber/MicroC/Atv7-SemaforoVeiculosPed/sem-foros-de-pedestres-e-ve-culos-cet/zephyr/frdm_kl25z.overlay'
+    include-dirs:
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/_pio/modules/hal/nxp/dts'
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/include'
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/include/zephyr'
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/dts/common'
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/dts/vendor'
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/dts/rx'
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/dts/x86'
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/dts/xtensa'
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/dts/sparc'
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/dts/riscv'
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/dts/posix'
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/dts/arm64'
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/dts/arm'
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/dts/arc'
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/dts'
+    user-files:
+     - 'C:/Users/alber/MicroC/Atv7-SemaforoVeiculosPed/sem-foros-de-pedestres-e-ve-culos-cet/zephyr/frdm_kl25z.overlay'
+  kconfig:
+    files:
+     - 'C:/Users/alber/.platformio/packages/framework-zephyr/boards/nxp/frdm_kl25z/frdm_kl25z_defconfig'
+     - 'C:/Users/alber/MicroC/Atv7-SemaforoVeiculosPed/sem-foros-de-pedestres-e-ve-culos-cet/zephyr/prj.conf'
+    user-files:
+     - 'C:/Users/alber/MicroC/Atv7-SemaforoVeiculosPed/sem-foros-de-pedestres-e-ve-culos-cet/zephyr/prj.conf'
+  toolchain:
+    name: 'gnuarmemb'
+    path: 'C:/Users/alber/.platformio/packages/toolchain-gccarmnoneeabi'
+  zephyr:
+    version: '4.2.0'
+    zephyr-base: 'C:/Users/alber/.platformio/packages/framework-zephyr'
+version: '0.1.0'
