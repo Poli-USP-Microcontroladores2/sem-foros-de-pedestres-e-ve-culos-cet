@@ -2,8 +2,8 @@
 Atividade: Semáforos de Pedestres e Veículos
 
 ## Alunos
-Alberto Galhego Neto - NUSP 17019141
-Arthur Londero - NUSP 16855595
+    -Alberto Galhego Neto - NUSP 17019141
+    -Arthur Londero - NUSP 16855595
 
 # Planejamento
 ## Requisitos do Sistema:
