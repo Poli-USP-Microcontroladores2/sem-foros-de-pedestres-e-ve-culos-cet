@@ -78,3 +78,6 @@ Arthur Londero - NUSP 16855595
         [x] As duas placas funcionam individualmente?
         [x] O botao de pedestre e de modo noturno funciona e o sinal e propagado para a outra placa?
         [x] O piscar do modo noturno e sincronizado?
+
+# Conclusao
+        O sistema funciona de acordo com o esperado, todos os testes foram concluidos com sucesso.
