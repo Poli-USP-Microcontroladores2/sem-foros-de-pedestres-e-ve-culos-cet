@@ -142,37 +142,39 @@ int main(void)
     const int LOOP_MS = 10;
 
     while (1) {
-        int sync_high = gpio_pin_get_dt(&in1);
-        int night_in  = gpio_pin_get_dt(&in2);
-
-        atomic_set(&night_mode, night_in ? 1 : 0);
-
-        // --- Lógica de Watchdog e Fail-Safe (baseada no sinal de sincronismo in1) ---
-        // O sinal de sincronismo (in1) é usado como heartbeat. Se ele não mudar
-        // por um tempo, consideramos que a comunicação foi perdida (dead's man switch baby).
-        if (sync_high != last_sync_high) {
-            // Comunicação está ativa, reseta o watchdog.
-            sync_watchdog_timer = 0;
-            // Se a recuperação automática estiver habilitada, sai do modo fail-safe.
-            if (auto_recovery) {
-                atomic_set(&fail_safe_mode, false);
-            }
-        } else {
-            // Sem mudança no sinal, incrementa o timer do watchdog.
-            sync_watchdog_timer += LOOP_MS;
-        }
-
-        if (sync_watchdog_timer > FAIL_SAFE_TIMEOUT_MS) {
-            atomic_set(&fail_safe_mode, true);
-        }
-
-        // --- Lógica de Sincronismo ---
         if (sync) {
+            // --- MODO SINCRONIZADO ---
+            int sync_high = gpio_pin_get_dt(&in1);
+            int night_in  = gpio_pin_get_dt(&in2);
+
+            atomic_set(&night_mode, night_in ? 1 : 0);
+
+            // Lógica de Watchdog e Fail-Safe (baseada no sinal de sincronismo in1)
+            if (sync_high != last_sync_high) {
+                // Comunicação está ativa, reseta o watchdog.
+                sync_watchdog_timer = 0;
+                if (auto_recovery) {
+                    atomic_set(&fail_safe_mode, false);
+                }
+            } else {
+                // Sem mudança no sinal, incrementa o timer do watchdog.
+                sync_watchdog_timer += LOOP_MS;
+            }
+
+            if (sync_watchdog_timer > FAIL_SAFE_TIMEOUT_MS) {
+                atomic_set(&fail_safe_mode, true);
+            }
+
+            // Lógica de Sincronismo de estado
             veh_state = sync_high ? 1 : 0;
             last_sync_high = sync_high;
         } 
         else {
-            // Modo independente
+            // --- MODO INDEPENDENTE ---
+            // Ignora entradas, modo noturno e fail-safe. Opera com temporizador local.
+            atomic_set(&night_mode, false);
+            atomic_set(&fail_safe_mode, false);
+
             local_timer += LOOP_MS;
             if (local_timer >= CYCLE_TIME_MS) {
                 veh_state = !veh_state;
