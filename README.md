@@ -48,8 +48,15 @@ Atividade: Semáforos de Pedestres e Veículos
             Pontos:
                 1-Implementar Interrupts, usar polling estava dando problemas.
                     Ao serem acionados, os botões modificam o valor da variável CurrentState e NightMode.
-                    Ao serem acionados, os botões tb modificam o valor das saídas OUT1 e OUT2
+                    Ao serem acionados, os botões também modificam o valor das saídas OUT1 e OUT2.
 
+### Arquitetura/Projeto do Código do semáforo de pedestres:
+        A-Ciclo Básico: Vermelho 4 segundos, Verde 4 segundos.
+            Pontos: 
+            1-  Desenvolvimento do a estrutura básica, que garante um funcionamento independente.
+                Implementação de um sistema de sincronismo via GPIO, o semáforo de veículos me fornece informações sobre as transições de estado (Verde<->Vermelho ou Modo noturno <-> Rotina normal).
+
+            2- Foi implementado um sistema de fail-safe, onde, ao estar com modo de sincronismo ativo, e não existir mudança de estado por muito tempo, o sistema ativa um modo fail-safe, garantindo que o semáforo de pedestres fique vermelha indefinidamente.
 
 # Testes / Milestones / Passos de desenvolvimento do projeto:
 ### 1- Implementar e testar o sistema de loop de cores usando o mainthread e a variável CurrentState.
@@ -67,17 +74,24 @@ Atividade: Semáforos de Pedestres e Veículos
         [x] Verificar se há a mudança de modo de acordo com o esperado.
         [x] Verificar se ao acionar novamente o programa volta ao modo original.
 
-### 4-Implementar e testar a comunicação via GPIO
+### 4-Implementar e testar mecanismos de segurança para o semáforo de pedestres
+        [x] O semáforo de pedestres NUNCA fica verde enquanto o de veículos não está vermelho.
+        [x] O sistema não perde sincronismo, mesmo forçando reinicializações das placas.
+        [x] Caso a conexão entre os sistemas seja interrompida, o semáforo de pedestres entra em modo fail-safe, ficando vermelho piscante indefinidamente.
+        [x] Mecanismo de recuperação automática opcional, necessita estudos para equilibrar a resiliência vs segurança do sistema.
+
+### 5-Implementar e testar a comunicação via GPIO
         [x] Implementar o acionamento/toggle das GPIO
         [x] Verificar no osciloscópio se há a mudança do sinal e eles estao funcionando adequadamente.
     
-### 5-Juntar os 2 MCU e Testar
+### 6-Juntar os 2 MCU e Testar
         [x]As duas placas conseguem enviar/receber sinal.
         [x] As duas placas conseguem entrar em sincronia das cores e de modos.
         [x] O sinal de pedestres respeita o botao de pedestres interrompendo o ciclo?
         [x] As duas placas funcionam individualmente?
         [x] O botao de pedestre e de modo noturno funciona e o sinal e propagado para a outra placa?
         [x] O piscar do modo noturno e sincronizado?
+        [ ] O controlador de pedestres opera com fail-safe para eventualidades?
 
 # Conclusao
         O sistema funciona de acordo com o esperado, todos os testes foram concluidos com sucesso.
