@@ -51,7 +51,7 @@ Arthur Londero - NUSP 16855595
                     Ao serem acionados, os botões tb modificam o valor das saídas OUT1 e OUT2
 
 
-## Milestones/Passos de desenvolvimento do projeto:
+# Testes / Milestones / Passos de desenvolvimento do projeto:
 ### 1- Implementar e testar o sistema de loop de cores usando o mainthread e a variável CurrentState.
         [x] Testar se o loop troca as cores adequadamente.
         [x] Testar se o tempo de cada cor está sendo respeitado.
